@@ -42,6 +42,7 @@ $container['db'] = function ($c) {
 };
 
 
+
 // $container['NAME'] = function($c) {
 	//if we need some dependencies:
     // $db = $c->get('db');
@@ -56,19 +57,55 @@ $app->get('/', function (Request $request, Response $response, array $args) {
 
 
 $app->get('/list', function (Request $request, Response $response, array $args) {
-    $games = '[{"id":"1","name":"The Witcher 3: Wild Hunt","cost":"40","description":"The Witcher 3: Wild Hunt is a 2015 action role-playing video game developed and published by CD Projekt."}]';
+    $query = $this->db->prepare('SELECT * FROM mvc.game');
+    $query->execute();
+    $games = $query->fetchAll(\PDO::FETCH_ASSOC);
     
-    return $response->withJson([
-        'games' => $games
-    ], 200);
+    $format = isset($request->getQueryParams()['format'])
+        ? $request->getQueryParams()['format']
+        : 'json';
+    if ($format == 'json') {
+        return $response->withJson([
+            'games' => $games
+        ], 200);
+    }
+
+    if ($format == 'html') {
+        return $this->view->render($response, 'list.html', [
+            'games' => $games
+        ]);
+    }
 });
 
 $app->get('/{id}', function (Request $request, Response $response, array $args) {
-    $game = '{"id":"1","name":"The Witcher 3: Wild Hunt","cost":"40","description":"The Witcher 3: Wild Hunt is a 2015 action role-playing video game developed and published by CD Projekt."}';
-    
-    return $response->withJson([
-        'game' => $game
-    ], 200);
+	
+	$id = $args['id'];
+
+    $query = $this->db->prepare('SELECT * FROM mvc.game where id = :id');
+    $query->bindParam(':id', $id, \PDO::PARAM_INT);
+    $query->execute();
+    $game = $query->fetchAll(\PDO::FETCH_ASSOC);
+
+    if(isset($game[0])) {
+    	$game = $game[0];
+		$format = isset($request->getQueryParams()['format'])
+	        ? $request->getQueryParams()['format']
+	        : 'json';
+	    if ($format == 'json') {
+	        return $response->withJson([
+	            'game' => $game
+	        ], 200);
+	    }
+
+	    if ($format == 'html') {
+	        return $this->view->render($response, 'index.html', [
+	            'game' => $game
+	        ]);
+	    }
+    } else {
+        throw new \Exception('not found game with id: '. $id, 422);
+    }
+   
 });
 
 // require __DIR__ . '/../src/router.php';
